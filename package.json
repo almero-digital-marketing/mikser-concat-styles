@@ -1,0 +1,13 @@
+{
+  "name": "mikser-concat-styles",
+  "version": "0.1.0",
+  "description": "Very simple style sheets concatenation for Mikser",
+  "main": "index.js",
+  "dependencies": {
+    "bluebird": "^3.1.5",
+    "fs-extra-promise": "^0.3.1",
+    "postcss": "^5.0.14",
+    "postcss-import": "^8.0.2",
+    "postcss-url": "^5.1.0"
+  }
+}
