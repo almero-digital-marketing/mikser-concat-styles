@@ -9,9 +9,10 @@ let _ = require('lodash');
 let touch = require('touch');
 
 module.exports = function (mikser, context) {
+	let debug = mikser.debug('concat-styles');
+
 	if (!context) {
 
-		let debug = mikser.debug('concat-styles');
 		let map = {};
 		let runtimeMap = path.join(mikser.config.runtimeFolder, 'concat-styles.json');
 		if (fs.existsSync(runtimeMap)) {
@@ -26,7 +27,7 @@ module.exports = function (mikser, context) {
 
 			if (event == 'change' || event == 'unlink') {
 				if (destinationsToRealod.length) {
-					debug('Concatenating:', destinationsToRealod, file);
+					debug('Concatenating:', file, '->', destinationsToRealod.join(','));
 					return Promise.map(destinationsToRealod, (destination) => {
 						if (event == 'unlink') Array.prototype.splice.call(map[destination].sources, map[destination].sources.indexOf(file), 1);
 						return concat(map[destination]);
@@ -40,7 +41,7 @@ module.exports = function (mikser, context) {
 			return Promise.resolve();
 		});
 
-		function rebase (style, info) {
+		function rebase(style, info) {
 			debug('Rebase: started:', style);
 			return fs.readFileAsync(style).then((content) => {
 				return postcss()
@@ -57,7 +58,7 @@ module.exports = function (mikser, context) {
 			});
 		}
 
-		function concat (info) {
+		function concat(info) {
 			map[info.destination] = {
 				sources: info.sources,
 				sourcemap: info.sourcemap === true ? info.sourcemap : false,
@@ -129,13 +130,9 @@ module.exports = function (mikser, context) {
 			concatInfo.destination = concatInfo.sourceExt === concatInfo.destinationExt ? path.join(mikser.config.outputFolder, destination) : path.join(mikser.config.outputFolder, destination, path.basename(context.layouts[0]._id, path.extname(context.layouts[0]._id)) + '.all' + concatInfo.sourceExt);
 
 			context.pending = context.pending.then(() => {
-				return mikser.broker.call('mikser.plugins.concatStyles.concat', concatInfo).then((message) => {
-					if (message) console.log(message);
-					return Promise.resolve();
-				}).catch((err) => {
-					console.log(err, 'in catch');
-					return Promise.resolve();
-				})
+				return mikser.broker.call('mikser.plugins.concatStyles.concat', concatInfo).catch((err) => {
+					mikser.diagnostics.log(context, 'error', 'Error concatenating:', info.destination, err);
+				});
 			});
 			return mikser.manager.getUrl(concatInfo.destination);
 		}
