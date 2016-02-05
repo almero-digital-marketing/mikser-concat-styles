@@ -129,7 +129,7 @@ module.exports = function (mikser, context) {
 			}
 			concatInfo.destination = concatInfo.sourceExt === concatInfo.destinationExt ? path.join(mikser.config.outputFolder, destination) : path.join(mikser.config.outputFolder, destination, path.basename(context.layouts[0]._id, path.extname(context.layouts[0]._id)) + '.all' + concatInfo.sourceExt);
 
-			context.pending = context.pending.then(() => {
+			context.process(() => {
 				return mikser.broker.call('mikser.plugins.concatStyles.concat', concatInfo).catch((err) => {
 					mikser.diagnostics.log(context, 'error', 'Error concatenating:', concatInfo.destination, err);
 				});
