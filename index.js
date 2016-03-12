@@ -68,27 +68,29 @@ module.exports = function (mikser, context) {
 			fs.writeFileSync(runtimeMap, JSON.stringify(map, null, 2));
 
 			if (mikser.manager.isNewer(info.sources, info.destination)) {
-				// Lock inline file for further usage by creating it and updating its mtime;
-				fs.ensureFileSync(info.destination);
-				touch.sync(info.destination);
-				let importContent = '';
-				info.sources.forEach((style, index) => {
-					importContent += '@import "' + style + (index === info.sources.length -1 ? '";' : '";\n');
-				});
-				debug('Concat started: ', info.destination);
-				return postcss(atImport({
-					root: mikser.config.outputFolder,
-					load: (fileName) => {
-						return rebase(fileName, info);
-					}
-				}))
-				.process(importContent, {
-					from: mikser.config.outputFolder,
-					to: info.destination,
-					map: info.sourcemap === true ? { inline: true } : false
-				}).then((output) => {
-					return fs.outputFileAsync(info.destination, output.css).then(() => debug('Concat done:', info.destination));
-				});
+				return mikser.watcher.unplug().then(() => {
+					// Lock inline file for further usage by creating it and updating its mtime;
+					fs.ensureFileSync(info.destination);
+					touch.sync(info.destination);
+					let importContent = '';
+					info.sources.forEach((style, index) => {
+						importContent += '@import "' + style + (index === info.sources.length -1 ? '";' : '";\n');
+					});
+					debug('Concat started: ', info.destination);
+					return postcss(atImport({
+						root: mikser.config.outputFolder,
+						load: (fileName) => {
+							return rebase(fileName, info);
+						}
+					}))
+					.process(importContent, {
+						from: mikser.config.outputFolder,
+						to: info.destination,
+						map: info.sourcemap === true ? { inline: true } : false
+					}).then((output) => {
+						return fs.outputFileAsync(info.destination, output.css).then(debug('Concat done:', info.destination));
+					});
+				}).then(() => mikser.watcher.plug());
 			} else {
 				debug('Destination is up to date: ', info.destination);
 				return Promise.resolve();
