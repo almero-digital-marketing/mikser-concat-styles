@@ -134,7 +134,6 @@ module.exports = function (mikser, context) {
 
 			if (mikser.manager.isNewer(concatInfo.sources, concatInfo.destination)) {
 				context.process(() => {
-					return Promise.resolve(); // FUCK
 					let concat;
 					if (cluster.isMaster) {
 						concat = mikser.plugins.concatStyles.concat(concatInfo);
