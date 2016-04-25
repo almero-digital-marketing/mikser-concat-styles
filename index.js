@@ -21,7 +21,8 @@ module.exports = function (mikser, context) {
 			map = JSON.parse(fs.readFileSync(runtimeMap, 'utf-8'));
 		}
 
-		mikser.on('mikser.watcher.outputAction', (event, file) => {		
+		mikser.on('mikser.watcher.outputAction', (event, file) => {
+			if (map[file]) return;
 			file = path.join(mikser.config.outputFolder, file);
 			let destinationsToRealod = _.keys(_.pickBy(map, (destination) => {
 				return destination.sources.indexOf(file) !== -1;
@@ -33,8 +34,11 @@ module.exports = function (mikser, context) {
 					return Promise.map(destinationsToRealod, (destination) => {
 						if (event == 'unlink') Array.prototype.splice.call(map[destination].sources, map[destination].sources.indexOf(file), 1);
 						return concat(map[destination]);
+					}, {
+						concurrency: 1
 					}).then(() => {
 						debug('Concatenating finished');
+						return fs.writeFileAsync(runtimeMap, JSON.stringify(map, null, 2));
 					});
 				} else {
 					return Promise.resolve();
@@ -44,10 +48,10 @@ module.exports = function (mikser, context) {
 		});
 
 		function rebase(style, info) {
-			debug('Rebase: started:', style);
-			return fs.statAsync((stats) => {
-				if (rebaseCache[style] && stats.mtime.getTime() < rebaseCache[style].mtime) {
-					return rebaseCache[style].css;
+			debug('Rebase started:', style);
+			return fs.statAsync(style).then((stats) => {
+				if (rebaseCache[style] && stats.mtime.getTime() <= rebaseCache[style].mtime) {
+					return Promise.resolve(rebaseCache[style].css);
 				}
 				return fs.readFileAsync(style).then((content) => {
 					return postcss()
@@ -77,7 +81,6 @@ module.exports = function (mikser, context) {
 			}
 
 			if (mikser.manager.isNewer(info.sources, info.destination)) {
-				fs.writeFileSync(runtimeMap, JSON.stringify(map, null, 2));
 				return mikser.watcher.unplug().then(() => {
 					// Lock inline file for further usage by creating it and updating its mtime;
 					fs.ensureFileSync(info.destination);
@@ -100,7 +103,7 @@ module.exports = function (mikser, context) {
 					}).then((output) => {
 						return fs.outputFileAsync(info.destination, output.css).then(debug('Concat done:', info.destination));
 					});
-				}).then(() => mikser.watcher.plug());
+				}).then(() => mikser.watcher.plug());					
 			} else {
 				debug('Destination is up to date: ', info.destination);
 				return Promise.resolve();
@@ -150,7 +153,9 @@ module.exports = function (mikser, context) {
 					} else {
 						concat = mikser.broker.call('mikser.plugins.concatStyles.concat', concatInfo);
 					}
-					return concat.catch((err) => {
+					return concat.then(() => {
+						return fs.writeFileAsync(runtimeMap, JSON.stringify(map, null, 2));
+					}).catch((err) => {
 						mikser.diagnostics.log(context, 'error', 'Error concatenating:', concatInfo.destination, err);
 					});
 				});
