@@ -74,39 +74,43 @@ module.exports = function (mikser, context) {
 		}
 
 		function concat(info) {
-			map[info.destination] = {
-				sources: info.sources,
-				sourcemap: info.sourcemap === true ? info.sourcemap : false,
-				destination: info.destination
-			}
+			let fileId = info.destination.replace(mikser.config.outputFolder,'');
+			if ((!mikser.options.renderInclude || (mikser.options.renderInclude && fileId.indexOf(mikser.options.renderInclude) > -1)) &&
+				(!mikser.options.renderExclude || (mikser.options.renderExclude && fileId.indexOf(mikser.options.renderExclude) < 0))) {
+				map[info.destination] = {
+					sources: info.sources,
+					sourcemap: info.sourcemap === true ? info.sourcemap : false,
+					destination: info.destination
+				}
 
-			if (mikser.manager.isNewer(info.sources, info.destination)) {
-				return mikser.watcher.unplug().then(() => {
-					// Lock inline file for further usage by creating it and updating its mtime;
-					fs.ensureFileSync(info.destination);
-					touch.sync(info.destination);
-					let importContent = '';
-					info.sources.forEach((style, index) => {
-						importContent += '@import "' + style + (index === info.sources.length -1 ? '";' : '";\n');
-					});
-					debug('Concat started: ', info.destination);
-					return postcss(atImport({
-						root: mikser.config.outputFolder,
-						load: (fileName) => {
-							return rebase(fileName, info);
-						}
-					}))
-					.process(importContent, {
-						from: mikser.config.outputFolder,
-						to: info.destination,
-						map: info.sourcemap === true ? { inline: true } : false
-					}).then((output) => {
-						return fs.outputFileAsync(info.destination, output.css).then(debug('Concat done:', info.destination));
-					});
-				}).then(() => mikser.watcher.plug());					
-			} else {
-				debug('Destination is up to date: ', info.destination);
-				return Promise.resolve();
+				if (mikser.manager.isNewer(info.sources, info.destination)) {
+					return mikser.watcher.unplug().then(() => {
+						// Lock inline file for further usage by creating it and updating its mtime;
+						fs.ensureFileSync(info.destination);
+						touch.sync(info.destination);
+						let importContent = '';
+						info.sources.forEach((style, index) => {
+							importContent += '@import "' + style + (index === info.sources.length -1 ? '";' : '";\n');
+						});
+						debug('Concat started: ', info.destination);
+						return postcss(atImport({
+							root: mikser.config.outputFolder,
+							load: (fileName) => {
+								return rebase(fileName, info);
+							}
+						}))
+						.process(importContent, {
+							from: mikser.config.outputFolder,
+							to: info.destination,
+							map: info.sourcemap === true ? { inline: true } : false
+						}).then((output) => {
+							return fs.outputFileAsync(info.destination, output.css).then(debug('Concat done:', info.destination));
+						});
+					}).then(() => mikser.watcher.plug());					
+				} else {
+					debug('Destination is up to date: ', info.destination);
+					return Promise.resolve();
+				}
 			}
 		}
 		return Promise.resolve({concat: concat});
