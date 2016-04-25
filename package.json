@@ -1,6 +1,6 @@
 {
   "name": "mikser-concat-styles",
-  "version": "0.3.3",
+  "version": "0.3.4",
   "description": "Very simple style sheets concatenation for Mikser",
   "main": "index.js",
   "dependencies": {
