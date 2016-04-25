@@ -14,13 +14,14 @@ module.exports = function (mikser, context) {
 
 	if (!context) {
 
+		let rebaseCache = {};
 		let map = {};
 		let runtimeMap = path.join(mikser.config.runtimeFolder, 'concat-styles.json');
 		if (fs.existsSync(runtimeMap)) {
 			map = JSON.parse(fs.readFileSync(runtimeMap, 'utf-8'));
 		}
 
-		mikser.on('mikser.watcher.outputAction', (event, file) => {
+		mikser.on('mikser.watcher.outputAction', (event, file) => {		
 			file = path.join(mikser.config.outputFolder, file);
 			let destinationsToRealod = _.keys(_.pickBy(map, (destination) => {
 				return destination.sources.indexOf(file) !== -1;
@@ -44,18 +45,27 @@ module.exports = function (mikser, context) {
 
 		function rebase(style, info) {
 			debug('Rebase: started:', style);
-			return fs.readFileAsync(style).then((content) => {
-				return postcss()
-					.use(url({
-						url: "rebase"
-					}))
-					.process(content, {
-						from: mikser.manager.getUrl(style),
-						to: mikser.manager.getUrl(info.destination)
-					}).then((result) => {
-						debug('Rebase done:', style);
-						return Promise.resolve(result.css);
-					});
+			return fs.statAsync((stats) => {
+				if (rebaseCache[style] && stats.mtime.getTime() < rebaseCache[style].mtime) {
+					return rebaseCache[style].css;
+				}
+				return fs.readFileAsync(style).then((content) => {
+					return postcss()
+						.use(url({
+							url: "rebase"
+						}))
+						.process(content, {
+							from: mikser.manager.getUrl(style),
+							to: mikser.manager.getUrl(info.destination)
+						}).then((result) => {
+							debug('Rebase done:', style);
+							rebaseCache[style] = {
+								mtime: stats.mtime.getTime(),
+								css: result.css
+							}
+							return Promise.resolve(result.css);
+						});
+				});
 			});
 		}
 
