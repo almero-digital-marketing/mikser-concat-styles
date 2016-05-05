@@ -11,12 +11,11 @@ let cluster = require('cluster');
 
 module.exports = function (mikser, context) {
 	let debug = mikser.debug('concat-styles');
+	let runtimeMap = path.join(mikser.config.runtimeFolder, 'concat-styles.json');
+	let map = {};
 
 	if (!context) {
-
 		let rebaseCache = {};
-		let map = {};
-		let runtimeMap = path.join(mikser.config.runtimeFolder, 'concat-styles.json');
 		if (fs.existsSync(runtimeMap)) {
 			map = JSON.parse(fs.readFileSync(runtimeMap, 'utf-8'));
 		}
